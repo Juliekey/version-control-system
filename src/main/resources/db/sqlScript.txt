@@ -1,0 +1,186 @@
+create sequence USERS_SEQ
+/
+
+create sequence GROUPS_SEQ
+/
+
+create sequence ROLES_SEQ
+/
+CREATE SEQUENCE REMOTE_REP_SEQ;
+/
+CREATE SEQUENCE STATUS_SEQ;
+/
+CREATE SEQUENCE LOCAL_REPS_SEQ;
+/
+CREATE SEQUENCE revisions_history_seq;
+/
+
+create table USERS
+(
+  ID NUMBER not null
+    constraint USERS_ID_PK
+    primary key,
+  NAME VARCHAR2(255)
+    unique,
+  PASSWORD VARCHAR2(32) not null,
+  GROUP_ID NUMBER not null,
+  ENABLED NUMBER default 1
+)
+/
+
+create trigger AUTOINC_USERS_TRG
+before insert
+  on USERS
+for each row
+  begin
+    if :new.docId is null then
+      select users_seq.nextval into :new.docId from dual;
+    end if;
+  end;
+/
+
+create table ROLES
+(
+  ID NUMBER not null
+    constraint ROLES_ID_PK
+    primary key,
+  NAME VARCHAR2(100) not null
+)
+/
+
+create trigger AUTOINC_ROLES_TRG
+before insert
+  on ROLES
+for each row
+  begin
+    if :new.docId is null then
+      select roles_seq.nextval into :new.docId from dual;
+    end if;
+  end;
+/
+
+create table GROUPS
+(
+  ID NUMBER not null
+    constraint GROUPS_ID_PK
+    primary key,
+  NAME VARCHAR2(255)
+    unique,
+  ROLE_ID NUMBER
+    constraint GROUPS_ROLES_FK
+    references ROLES
+)
+/
+
+create trigger AUTOINC_GROUPS_TRG
+before insert
+  on GROUPS
+for each row
+  begin
+    if :new.docId is null then
+      select groups_seq.nextval into :new.docId from dual;
+    end if;
+  end;
+/
+
+alter table USERS
+  add constraint USERS_GROUPS_FK
+foreign key (GROUP_ID) references GROUPS
+/
+
+CREATE VIEW USER_ROLES AS SELECT users.name, roles.name role FROM users
+  JOIN groups ON groups.docId = users.group_id
+  JOIN roles ON roles.ID = groups.role_id
+/
+create or replace trigger AUTOINC_REMOTE_REP_TRG
+before insert
+  on remote_rep
+for each row
+  begin
+    if :new.doc_id is null then
+      select remote_rep_seq.nextval into :new.doc_id from dual;
+    end if;
+  end;
+  /
+create or replace trigger AUTOINC_STATUS_TRG
+before insert
+  on STATUS
+for each row
+  begin
+    if :new.docId is null then
+      select STATUS_seq.nextval into :new.docId from dual;
+    end if;
+  end;
+  /
+create or replace trigger AUTOINC_LOCAL_REPS_TRG
+before insert
+  on LOCAL_REPS
+for each row
+  begin
+    if :new.doc_id is null then
+      select LOCAL_REPS_seq.nextval into :new.doc_id from dual;
+    end if;
+  end;
+  /
+create or replace trigger AUTOINC_revisions_history_TRG
+before insert
+  on revisions_history
+for each row
+  begin
+    if :new.docId is null then
+      select revisions_history_seq.nextval into :new.docId from dual;
+    end if;
+  end;
+/
+CREATE TABLE remote_rep
+(
+  doc_id  INT PRIMARY KEY,
+  name    VARCHAR2(255),
+  content VARCHAR2(4000)
+);
+/
+CREATE TABLE status (
+  docId   INT PRIMARY KEY,
+  name VARCHAR2(50) UNIQUE
+);
+/
+CREATE TABLE local_reps
+(
+  doc_id        INT PRIMARY KEY,
+  remote_doc_id INT,
+  name          VARCHAR2(255),
+  content       VARCHAR2(4000),
+  status        INT DEFAULT 0  REFERENCES status (docId)
+);
+/
+CREATE TABLE revisions_history
+(
+  docId            INT PRIMARY KEY,
+  remote_doc_id INT,
+  status        INT REFERENCES status (docId),
+  change        VARCHAR2(4000),
+  time          DATE DEFAULT SYSDATE
+)
+/
+CREATE TABLE last_update
+(
+  user_id     INTEGER REFERENCES users (docId),
+  update_time DATE DEFAULT SYSDATE
+)
+ALTER TABLE LOCAL_REPS
+ADD  user_id INT REFERENCES USERS(id);
+
+INSERT INTO ROLES (NAME) VALUES
+  ('ADMIN');
+INSERT INTO ROLES (NAME) VALUES
+  ('USER');
+
+INSERT INTO GROUPS(name, role_id) VALUES
+  ('Admin group', 1);
+INSERT INTO GROUPS(name, role_id) VALUES
+  ('User Group', 2);
+
+INSERT INTO users (name, password, group_id)VALUES
+  ('admin', 'admin', 1);
+INSERT INTO users (name, password, group_id)VALUES
+  ('user', 'user', 2);
